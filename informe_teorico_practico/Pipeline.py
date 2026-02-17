@@ -106,7 +106,7 @@ print("\nModa de las compras:")
 print(moda_matematica_compra)
 
 # Visualización de relaciones entre variables con la objetivo, para continuar con el codigo cierre la ventana del gráfico
-print("Generando gráfico de relaciones")
+print("Generando gráfico de relaciones, no olvidar cerrar la ventana del gráfico para continuar con el código")
 columnas_interes = ['Customer Age', 'Total Purchase Amount', 'Quantity', 'Product Price', 'Returns']
 sns.pairplot(df.sample(1000), vars=columnas_interes, hue='compra', palette='husl', diag_kind='kde')
 plt.title("Matriz de Relaciones entre Variables")
