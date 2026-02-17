@@ -73,6 +73,7 @@ o por introducir ruido en el modelo.
 - Codificación de variables categóricas mediante **One-Hot Encoding**
 - Normalización de datos usando **Min-Max Scaler**
 - Análisis exploratorio mediante correlación de Pearson y cálculo de la moda
+- Gráfico de relaciones de variables con la objetivo
 
 ---
 

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression
@@ -103,6 +104,13 @@ print(correlaciones['target_compra'].sort_values(ascending=False))
 moda_matematica_compra = df.mode() # Moda de cada columna
 print("\nModa de las compras:")
 print(moda_matematica_compra)
+
+# Visualización de relaciones entre variables con la objetivo, para continuar con el codigo cierre la ventana del gráfico
+print("Generando gráfico de relaciones")
+columnas_interes = ['Customer Age', 'Total Purchase Amount', 'Quantity', 'Product Price', 'Returns']
+sns.pairplot(df.sample(1000), vars=columnas_interes, hue='compra', palette='husl', diag_kind='kde')
+plt.title("Matriz de Relaciones entre Variables")
+plt.show()
 
 # Normalizacion (Use Min-Max Scaler)
 scaler = MinMaxScaler()
