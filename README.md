@@ -1,7 +1,7 @@
 
 #  Repositorio: JuanCarlos_Citelly
 
-Este repositorio contiene el material personal de **Juan Carlos Citelly** para el curso *Fundamentos de Aprendizaje Supervisado (SI3015)*, organizado bajo la cuenta de la asignatura. :contentReference[oaicite:1]{index=1}
+Este repositorio contiene el material personal de **Juan Carlos Citelly** para el curso *Fundamentos de Aprendizaje Supervisado (SI3015)*
 
 ---
 
@@ -10,7 +10,7 @@ Este repositorio contiene el material personal de **Juan Carlos Citelly** para e
 El proyecto contiene los siguientes archivos principales:
 
 ###  `informe_teorico_practico`
-Documento (en carpeta) con la **justificación teórica y práctica** del trabajo realizado en el laboratorio y análisis del problema. :contentReference[oaicite:2]{index=2}
+Documento (en carpeta) con la **justificación teórica y práctica** del trabajo realizado en el laboratorio y análisis del problema.
 
 ---
 
