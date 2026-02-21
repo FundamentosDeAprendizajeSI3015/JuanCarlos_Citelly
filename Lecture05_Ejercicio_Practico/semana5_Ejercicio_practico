@@ -1,0 +1,187 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge, Lasso, LogisticRegression
+from sklearn.metrics import (
+    r2_score,
+    mean_absolute_error,
+    accuracy_score,
+    f1_score,
+    confusion_matrix
+)
+
+# CARGA Y LIMPIEZA DEL DATASET
+df = pd.read_csv("movies.csv")
+
+# Limpiar VOTES (quitar comas)
+df['VOTES'] = df['VOTES'].str.replace(',', '', regex=True)
+df['VOTES'] = pd.to_numeric(df['VOTES'], errors='coerce')
+
+# Convertir columnas a numéricas
+df['RunTime'] = pd.to_numeric(df['RunTime'], errors='coerce')
+df['RATING'] = pd.to_numeric(df['RATING'], errors='coerce')
+
+# Dataset final para ML
+df_ml = df[['RunTime', 'VOTES', 'RATING']].dropna()
+
+# 1. REGRESIÓN LINEAL
+# Objetivo: predecir RATING
+X = df_ml[['RunTime', 'VOTES']]
+y = df_ml['RATING']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Gráfica train vs test
+plt.scatter(X_train['RunTime'], y_train, color='blue', label='Train')
+plt.scatter(X_test['RunTime'], y_test, color='red', label='Test')
+plt.xlabel('RunTime')
+plt.ylabel('Rating')
+plt.legend()
+plt.title('Train vs Test')
+plt.show()
+
+
+# Pipelines Ridge y Lasso
+
+pipe_ridge = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', Ridge())
+])
+
+pipe_lasso = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', Lasso())
+])
+
+
+# Distribuciones de parámetros
+
+param_ridge = {'model__alpha': np.logspace(-3, 3, 50)}
+param_lasso = {'model__alpha': np.logspace(-3, 3, 50)}
+
+
+# Randomized Search + CV
+
+ridge_search = RandomizedSearchCV(
+    pipe_ridge,
+    param_ridge,
+    n_iter=20,
+    cv=5,
+    scoring='r2',
+    random_state=42
+)
+
+lasso_search = RandomizedSearchCV(
+    pipe_lasso,
+    param_lasso,
+    n_iter=20,
+    cv=5,
+    scoring='r2',
+    random_state=42
+)
+
+ridge_search.fit(X_train, y_train)
+lasso_search.fit(X_train, y_train)
+
+
+# Resultados
+
+y_pred_ridge = ridge_search.predict(X_test)
+y_pred_lasso = lasso_search.predict(X_test)
+
+print("=== REGRESIÓN LINEAL ===")
+print("Ridge best params:", ridge_search.best_params_)
+print("Lasso best params:", lasso_search.best_params_)
+print("Ridge R2:", r2_score(y_test, y_pred_ridge))
+print("Ridge MAE:", mean_absolute_error(y_test, y_pred_ridge))
+print("Lasso R2:", r2_score(y_test, y_pred_lasso))
+print("Lasso MAE:", mean_absolute_error(y_test, y_pred_lasso))
+
+
+# Gráfica de predicción
+
+plt.scatter(y_test, y_pred_ridge, label='Ridge')
+plt.scatter(y_test, y_pred_lasso, label='Lasso')
+plt.xlabel('Rating real')
+plt.ylabel('Rating predicho')
+plt.legend()
+plt.title('Predicción Ridge vs Lasso')
+plt.show()
+
+
+# 2. REGRESIÓN LOGÍSTICA
+# Clasificación: buena o mala película
+
+df_ml['GoodMovie'] = (df_ml['RATING'] >= 7).astype(int)
+
+X = df_ml[['RunTime', 'VOTES']]
+y = df_ml['GoodMovie']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+
+# Pipeline logística
+
+pipe_log = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', LogisticRegression(max_iter=1000))
+])
+
+
+# Parámetros
+
+param_log = {
+    'model__C': np.logspace(-3, 3, 50)
+}
+
+
+# Randomized Search + CV
+
+log_search = RandomizedSearchCV(
+    pipe_log,
+    param_log,
+    n_iter=20,
+    cv=5,
+    scoring='f1',
+    random_state=42
+)
+
+log_search.fit(X_train, y_train)
+
+
+# Métricas
+
+y_pred = log_search.predict(X_test)
+
+print("\n=== REGRESIÓN LOGÍSTICA ===")
+print("Best params:", log_search.best_params_)
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("F1-score:", f1_score(y_test, y_pred))
+
+
+# Gráfica de predicción
+
+plt.scatter(X_test['RunTime'], X_test['VOTES'], c=y_pred, cmap='coolwarm')
+plt.xlabel('RunTime')
+plt.ylabel('Votes')
+plt.title('Clasificación de películas')
+plt.show()
+
+
+# Matriz de confusión
+
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predicho')
+plt.ylabel('Real')
+plt.title('Matriz de Confusión')
+plt.show()
