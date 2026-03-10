@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import umap
 
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
@@ -17,19 +18,18 @@ random_state = 42
 plt.rc('font', family='serif', size=12)
 
 # CARGA DE DATOS
-data = pd.read_csv("dataset_sintetico_FIRE_UdeA_realista.csv")
+data = pd.read_csv("dataset_sintetico_FIRE_UdeA.csv")
 
 # Variables categóricas (Identificadores)
-cat_cols = ['anio', 'unidad']
+cat_cols = []
 
 # Variables numéricas (Indicadores financieros)
+# Para dataset grande
 num_cols = [
-    'ingresos_totales', 'gastos_personal', 'liquidez', 'dias_efectivo', 
-    'cfo', 'participacion_regalias', 
-    'participacion_servicios', 'participacion_matriculas', 'hhi_fuentes', 
-    'endeudamiento', 'tendencia_ingresos', 'gp_ratio'
+    'liquidez', 'dias_efectivo', 
+    'cfo', 'hhi_fuentes', 
+    'gastos_personal', 'tendencia_ingresos'
 ]
-
 target = 'label'
 
 
@@ -74,14 +74,16 @@ X_train, X_test, y_train, y_test = train_test_split(
 # DEFINICIÓN DEL MODELO (Random Forest Clasificador)
 pipeline_rf = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier(random_state=random_state))
+    ('classifier', RandomForestClassifier(random_state=random_state, class_weight='balanced', max_samples=0.8)) # Agregué balanced
 ])
 
-# Ajuste de hiperparámetros (Optimizado para análisis financiero)
+# Ajuste de hiperparámetros 
 param_grid = {
-    'classifier__n_estimators': [100, 200],
-    'classifier__max_depth': [10, 20, None],
-    'classifier__min_samples_leaf': [1, 5]
+    'classifier__n_estimators': [100], # No necesitas más para diagnosticar
+    'classifier__max_depth': [3, 4, 5], # Forzamos árboles muy cortos (Stumps)
+    'classifier__min_samples_leaf': [50, 100], # Hojas mucho más grandes
+    'classifier__max_features': [2, 3], # Menos variables por división
+    'classifier__ccp_alpha': [0.001, 0.01] # Poda de complejidad (Cost Complexity Pruning)
 }
 
 # ENTRENAMIENTO CON VALIDACIÓN CRUZADA
@@ -139,3 +141,40 @@ plt.show()
 # Imprimir reporte de clasificación detallado
 print("\n=== REPORTE DE CLASIFICACIÓN DETALLADO ===")
 print(classification_report(y_test, y_pred, target_names=['Clase 0', 'Clase 1']))
+
+# VISUALIZACIÓN UMAP
+print("\n=== GENERANDO DIAGRAMA UMAP ===")
+
+# Transformar datos de test con el preprocesador
+X_test_transformed = best_model.named_steps['preprocessor'].transform(X_test)
+
+# Aplicar UMAP para reducción a 2 dimensiones
+umap_reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, random_state=random_state)
+X_umap = umap_reducer.fit_transform(X_test_transformed)
+
+# Crear DataFrame para visualización
+umap_df = pd.DataFrame({
+    'UMAP1': X_umap[:, 0],
+    'UMAP2': X_umap[:, 1],
+    'Etiqueta_Real': y_test,
+    'Predicción': y_pred
+})
+
+# Visualizar UMAP coloreado por etiqueta real
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+sns.scatterplot(data=umap_df, x='UMAP1', y='UMAP2', hue='Etiqueta_Real', 
+                palette='Set1', s=60, alpha=0.8)
+plt.title('UMAP - Coloreado por Etiqueta Real')
+plt.legend(title='Clase Real')
+
+# Visualizar UMAP coloreado por predicción
+plt.subplot(1, 2, 2)
+sns.scatterplot(data=umap_df, x='UMAP1', y='UMAP2', hue='Predicción', 
+                palette='Set2', s=60, alpha=0.8)
+plt.title('UMAP - Coloreado por Predicción del Modelo')
+plt.legend(title='Predicción')
+
+plt.tight_layout()
+plt.show()
