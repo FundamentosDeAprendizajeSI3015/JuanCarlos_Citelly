@@ -9,7 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, silhouette_score
 from sklearn.cluster import KMeans, DBSCAN
@@ -18,18 +18,11 @@ from sklearn.cluster import KMeans, DBSCAN
 import skfuzzy as fuzz
 
 df = pd.read_csv("ecommerce.csv")
-
-df = df.drop(columns=["Customer ID", "Customer Name"], errors='ignore')
-
-if "Customer Age" in df.columns and "Age" in df.columns:
-    df = df.drop(columns=["Customer Age"])
-
+df = df.drop(columns=["Customer ID", "Customer Name", "Customer Age"])
 df["Purchase Date"] = pd.to_datetime(df["Purchase Date"])
 df["month"] = df["Purchase Date"].dt.month
 df["day_of_week"] = df["Purchase Date"].dt.dayofweek
-
 df = df.drop(columns=["Purchase Date"])
-
 X = df.drop("Churn", axis=1)
 y = df["Churn"]
 
@@ -41,13 +34,11 @@ num_pipeline = Pipeline([
     ("imputer", SimpleImputer(strategy="mean")),
     ("scaler", StandardScaler())
 ])
-
 # Pipeline categórico
 cat_pipeline = Pipeline([
     ("imputer", SimpleImputer(strategy="most_frequent")),
     ("encoder", OneHotEncoder(handle_unknown="ignore"))
 ])
-
 # Preprocesador completo
 preprocessor = ColumnTransformer([
     ("num", num_pipeline, num_cols),
@@ -61,7 +52,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 models = {
     "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Decision Tree": DecisionTreeClassifier(max_depth=5),
+    "Decision Tree": DecisionTreeClassifier(max_depth=3),
     "Linear Regression": LinearRegression()
 }
 
@@ -77,7 +68,7 @@ for name, model in models.items():
     y_pred = pipe.predict(X_test)
 
     if name == "Linear Regression":
-        y_pred = (y_pred > 0.5).astype(int)
+        y_pred = (y_pred > 0.5).astype(int) #True o false lo convierte a 1 o 0 respectivamente
     
     results_original[name] = {
         "accuracy": accuracy_score(y_test, y_pred),
@@ -90,6 +81,15 @@ print("\n=== RESULTADOS DATASET ORIGINAL ===")
 for k, v in results_original.items():
     print(k, v)
 
+#Tengo que hacer a parte el arbol para luego graficar
+tree_pipe = Pipeline([
+    ("prep", preprocessor),
+    ("model", DecisionTreeClassifier(max_depth=3))
+])
+tree_pipe.fit(X_train, y_train)
+tree_model = tree_pipe.named_steps["model"]
+feature_names = tree_pipe.named_steps["prep"].get_feature_names_out()
+
 # clustering no supervisado
 
 
@@ -98,21 +98,17 @@ os.makedirs(output_dir, exist_ok=True)
 
 
 X_processed = preprocessor.fit_transform(X)
-
-
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_processed)
 
 # kmeans
 kmeans = KMeans(n_clusters=3, random_state=42)
 clusters_kmeans = kmeans.fit_predict(X_processed)
-
 # dbscan
 dbscan = DBSCAN(eps=0.5, min_samples=5)
 clusters_dbscan = dbscan.fit_predict(X_processed)
-
 # Fuzzy c means
-X_np = X_processed.toarray() if hasattr(X_processed, "toarray") else X_processed
+X_np = X_processed.toarray() if hasattr(X_processed, "toarray") else X_processed # Fuzzy es una libreria vieja y no maneja un sparse matrix, por eso toca convertirlo a array
 X_np = X_np.T
 
 cntr, u, _, _, _, _, _ = fuzz.cluster.cmeans(
@@ -133,6 +129,20 @@ def guardar_grafica(X, labels, titulo, filename):
     plt.savefig(os.path.join(output_dir, filename))
     plt.close()
 
+def guardar_arbol(tree_model, feature_names, filename):
+    plt.figure(figsize=(18,10))
+    
+    plot_tree(
+        tree_model,
+        feature_names=feature_names,
+        class_names=["No Churn", "Churn"],
+        filled=True
+    )
+    
+    plt.title("Árbol de Decisión")
+    plt.savefig(os.path.join(output_dir, filename))
+    plt.close()
+
 # ============================================
 # GENERAR GRÁFICAS
 # ============================================
@@ -140,6 +150,7 @@ def guardar_grafica(X, labels, titulo, filename):
 guardar_grafica(X_pca, clusters_kmeans, "K-Means Clustering", "kmeans.png")
 guardar_grafica(X_pca, clusters_dbscan, "DBSCAN Clustering", "dbscan.png")
 guardar_grafica(X_pca, clusters_fuzzy, "Fuzzy C-Means Clustering", "fuzzy.png")
+guardar_arbol(tree_model, feature_names, "arbol_decision.png")
 
 # Evaluación clustering
 try:
@@ -151,12 +162,9 @@ except:
 # REETIQUETADO (30% DE RUIDO)
 
 y_noisy = y.copy()
-
 n = int(0.3 * len(y))
 indices = np.random.choice(len(y), n, replace=False)
-
 y_noisy.iloc[indices] = 1 - y_noisy.iloc[indices]
-
 X_train, X_test, y_train, y_test = train_test_split(
     X, y_noisy, test_size=0.2, random_state=42
 )
